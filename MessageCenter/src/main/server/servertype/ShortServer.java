@@ -10,18 +10,31 @@ public class ShortServer extends MessageServer {
     private static volatile ShortServer instance = null;
 
     private ShortServer() {
-
+        /**
+         * 私有，不能被外部创建
+         */
     }
+
+    /**
+     * 单例模式，实例化后调用start方法启动该服务器的线程
+     * @return
+     */
     public static ShortServer getInstance() {
         if (instance == null) {
             synchronized (ShortServer.class) {
                 if (instance == null) {
                     instance = new ShortServer();
-                    instance.max = 20;
+                    instance.max = 15;
+                    instance.start();
                 }
             }
         }
         return instance;
+    }
+
+    @Override
+    public void sendMessage() {
+        executor.execute((Runnable) blockingQueue.poll());
     }
 
     @Override

@@ -10,18 +10,31 @@ public class HiServer extends MessageServer {
     private static volatile HiServer instance = null;
 
     private HiServer() {
-
+        /**
+         * 私有，不能被外部创建
+         */
     }
+
+    /**
+     * 单例模式，实例化后调用start方法启动该服务器的线程
+     * @return
+     */
     public static HiServer getInstance() {
         if (instance == null) {
             synchronized (HiServer.class) {
                 if (instance == null) {
                     instance = new HiServer();
-                    instance.max = 16;
+                    instance.max = 10;
+                    instance.start();
                 }
             }
         }
         return instance;
+    }
+
+    @Override
+    public void sendMessage() {
+        executor.execute((Runnable) blockingQueue.poll());
     }
 
     @Override

@@ -15,4 +15,14 @@ public class EmailMessage extends Message {
     public String toString() {
         return this.getClass().getName() + " ->" + super.toString();
     }
+
+    @Override
+    public void run() {
+        try {
+            Thread.sleep(2000);
+            logger.info("邮件发送成功");
+        } catch (Exception e) {
+            logger.info("邮件发送失败", e);
+        }
+    }
 }

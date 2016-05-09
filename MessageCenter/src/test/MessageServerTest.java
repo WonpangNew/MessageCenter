@@ -31,7 +31,7 @@ public class MessageServerTest {
             if (date.getTime() <= timeLine && m < 16) {
                 try {
                     Thread.sleep(2000);
-                    System.out.println(messageServer.getBlockingQueue().poll().toString());
+                    messageServer.getBlockingQueue().poll();
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }

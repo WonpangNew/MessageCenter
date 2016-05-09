@@ -1,12 +1,6 @@
 package main.demo;
 
-import main.message.messagetype.EmailMessage;
-import main.message.messagetype.HiMessage;
-import main.message.messagetype.ShortMessage;
 import main.messagecenter.MessageCenter;
-import main.server.servertype.EmailServer;
-import main.server.servertype.HiServer;
-import main.server.servertype.ShortServer;
 
 /**
  * Created by niuwanpeng on 2016/5/5.
@@ -19,11 +13,14 @@ import main.server.servertype.ShortServer;
 public class ClientDemo {
     public static void main(String[] args) {
         MessageCenter messageCenter = MessageCenter.getInstance();
-        for (int i = 0; i < 100000; i++) {
-            MessageCenter.push(new HiMessage("tomHi", "LucyHi", "Hi" + i));
-            MessageCenter.push(new EmailMessage("tomEmail", "LucyEmail", "Email" + i));
-            MessageCenter.push(new ShortMessage("tomShort", "LucyShort", "Short" + i));
-        }
+        MessageDemo messageDemo = new MessageDemo();
+        /**
+         * 模拟发送消息的线程
+         */
+        messageDemo.start();
+        /**
+         * 模拟消息中心分发消息
+         */
         messageCenter.start();
     }
 }

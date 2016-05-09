@@ -12,16 +12,27 @@ public class EmailServer extends MessageServer {
     private EmailServer() {
 
     }
+
+    /**
+     * 单例模式，实例化后调用start方法启动该服务器的线程
+     * @return
+     */
     public static EmailServer getInstance() {
         if (instance == null) {
             synchronized (EmailServer.class) {
                 if (instance == null) {
                     instance = new EmailServer();
-                    instance.max = 10;
+                    instance.max = 3;
+                    instance.start();
                 }
             }
         }
         return instance;
+    }
+
+    @Override
+    public void sendMessage() {
+        executor.execute((Runnable) blockingQueue.poll());
     }
 
     @Override
