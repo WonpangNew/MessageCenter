@@ -6,6 +6,8 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.atomic.AtomicInteger;
+
 import org.apache.log4j.Logger;
 
 /**
@@ -24,11 +26,14 @@ public abstract class MessageServer extends Thread {
      */
     protected int max;
     /**
-     * 控制发送数量countMessage<=max,而且是线程同步的
+     * 控制发送数量,原子操作
      */
-    protected volatile int countMessage = 0;
-
-    protected Logger logger = Logger.getLogger(MessageServer.class);
+    protected AtomicInteger countMessage = new AtomicInteger(0);
+    /**
+     *一分钟时间间隔,60000毫秒
+     */
+    private static final int INTERVAL = 60000;
+    protected static Logger logger = Logger.getLogger(MessageServer.class);
 
     public BlockingQueue getBlockingQueue() {
         return blockingQueue;
@@ -44,37 +49,30 @@ public abstract class MessageServer extends Thread {
 
     /**
      * 控制每分钟只能发送max条信息，对服务器发送消息进行限流处理
-     * 60000ms = 1分钟
      */
     public void controlMessage() {
         Date date = new Date();
-        Long timeLine = date.getTime() + 60000;
+        Long timeLine = date.getTime() + INTERVAL;
         while (true) {
-            if (!blockingQueue.isEmpty()) {
-                if (date.getTime() <= timeLine && countMessage < max) {
-                    this.sendMessage();
-                    countMessage++;
-                } else {
-                    logger.info(this.getClass().getName() + "服务器阻塞限流");
-                    try {
-                        if ((timeLine - date.getTime()) > 0) {
-                            Thread.sleep(timeLine - date.getTime());
-                        }
-                    } catch (InterruptedException e) {
-                        logger.info("error", e);
-                    } finally {
-                        logger.info(this.getClass().getName() + "服务器唤醒继续发送");
-                        timeLine = date.getTime() + 60000;
-                        countMessage = 0;
-                    }
+            if (date.getTime() <= timeLine && countMessage.get() < max) {
+                try {
+                    executor.execute(new SendMessage((Message) blockingQueue.take()));
+                } catch (InterruptedException e) {
+                    logger.warn("没有待处理的消息！", e);
+                }
+                countMessage.getAndIncrement();
+            } else {
+                logger.info(this.getClass().getName() + "服务器阻塞限流");
+                try {
+                    Thread.sleep(timeLine - date.getTime());
+                } catch (InterruptedException e) {
+                    logger.error("error", e);
+                } finally {
+                    logger.info(this.getClass().getName() + "服务器唤醒继续发送");
+                    timeLine = date.getTime() + INTERVAL;
+                    countMessage.set(0);
                 }
             }
         }
     }
-
-    /**
-     * 模拟发送消息
-     * 具体实现根据Message类型的不同有不同的实现
-     */
-    public abstract void sendMessage();
 }

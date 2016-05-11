@@ -10,9 +10,7 @@ public class ShortServer extends MessageServer {
     private static volatile ShortServer instance = null;
 
     private ShortServer() {
-        /**
-         * 私有，不能被外部创建
-         */
+
     }
 
     /**
@@ -30,11 +28,6 @@ public class ShortServer extends MessageServer {
             }
         }
         return instance;
-    }
-
-    @Override
-    public void sendMessage() {
-        executor.execute((Runnable) blockingQueue.poll());
     }
 
     @Override

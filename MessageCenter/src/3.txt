@@ -1,0 +1,892 @@
+Index: log4j.properties
+===================================================================
+--- log4j.properties	(�汾 0)
++++ log4j.properties	(��������)
+@@ -0,0 +1,24 @@
++### ����###
++log4j.rootLogger = debug,stdout,D,E
++
++### �����Ϣ������̧ ###
++log4j.appender.stdout = org.apache.log4j.ConsoleAppender
++log4j.appender.stdout.Target = System.out
++log4j.appender.stdout.layout = org.apache.log4j.PatternLayout
++log4j.appender.stdout.layout.ConversionPattern = [%-5p] %d{yyyy-MM-dd HH:mm:ss,SSS} method:%l%n%m%n
++
++### ���DEBUG �������ϵ���־��=D://log.log ###
++log4j.appender.D = org.apache.log4j.DailyRollingFileAppender
++log4j.appender.D.File = D://log.log
++log4j.appender.D.Append = true
++log4j.appender.D.Threshold = DEBUG
++log4j.appender.D.layout = org.apache.log4j.PatternLayout
++log4j.appender.D.layout.ConversionPattern = %-d{yyyy-MM-dd HH:mm:ss}  [ %t:%r ] - [ %p ]  %m%n
++
++### ���ERROR �������ϵ���־��=D://error.log ###
++log4j.appender.E = org.apache.log4j.DailyRollingFileAppender
++log4j.appender.E.File =D://error.log
++log4j.appender.E.Append = true
++log4j.appender.E.Threshold = ERROR
++log4j.appender.E.layout = org.apache.log4j.PatternLayout
++log4j.appender.E.layout.ConversionPattern = %-d{yyyy-MM-dd HH:mm:ss}  [ %t:%r ] - [ %p ]
+\ No newline at end of file
+Index: main/demo/ClientDemo.java
+===================================================================
+--- main/demo/ClientDemo.java	(�汾 0)
++++ main/demo/ClientDemo.java	(��������)
+@@ -0,0 +1,26 @@
++package main.demo;
++
++import main.messagecenter.MessageCenter;
++
++/**
++ * Created by niuwanpeng on 2016/5/5.
++ *
++ *  1.模拟用户发送各种消息，先保存到消息中心的阻塞队列中
++ *  2.由消息中心根据消息类别分发到各消息的服务器
++ *  3.每个消息对应的服务器对消息分发进行限流处理
++ *  4.消息中心、各个消息对应的服务器均为单例
++ */
++public class ClientDemo {
++    public static void main(String[] args) {
++        MessageCenter messageCenter = MessageCenter.getInstance();
++        MessageDemo messageDemo = new MessageDemo();
++        /**
++         * 模拟发送消息的线程
++         */
++        messageDemo.start();
++        /**
++         * 模拟消息中心分发消息
++         */
++        messageCenter.start();
++    }
++}
+Index: main/demo/MessageDemo.java
+===================================================================
+--- main/demo/MessageDemo.java	(�汾 0)
++++ main/demo/MessageDemo.java	(��������)
+@@ -0,0 +1,31 @@
++package main.demo;
++
++import main.message.messagetype.EmailMessage;
++import main.message.messagetype.HiMessage;
++import main.message.messagetype.ShortMessage;
++import main.messagecenter.MessageCenter;
++
++/**
++ * Created by niuwanpeng on 2016/5/9.
++ */
++public class MessageDemo extends Thread {
++
++    /**
++     * 模拟用户随机发送消息
++     */
++    @Override
++    public void run() {
++        while (true) {
++            double random = Math.random();
++            if (random < 0.3) {
++                MessageCenter.push(new HiMessage("tomHi", "LucyHi", "Hi"));
++            }
++            else if (random < 0.7 && random > 0.3) {
++                MessageCenter.push(new EmailMessage("tomEmail", "LucyEmail", "Email"));
++            }
++            else {
++                MessageCenter.push(new ShortMessage("tomShort", "LucyShort", "Short"));
++            }
++        }
++    }
++}
+Index: main/message/Message.java
+===================================================================
+--- main/message/Message.java	(�汾 0)
++++ main/message/Message.java	(��������)
+@@ -0,0 +1,31 @@
++package main.message;
++
++import org.apache.log4j.Logger;
++
++/**
++ * Created by niuwanpeng on 2016/5/5.
++ */
++public abstract class Message implements Runnable {
++    private String sendPerson;
++    private String receivePerson;
++    private String messageContent;
++    private String type;
++    protected Logger logger = Logger.getLogger(Message.class);
++
++    public Message(String sendPerson, String receivePerson, String messageContent) {
++        this.sendPerson = sendPerson;
++        this.receivePerson = receivePerson;
++        this.messageContent = messageContent;
++        this.type = this.getClass().getName();
++    }
++
++    public String getType() {
++        return type;
++    }
++
++    @Override
++    public String toString() {
++        return "Message{messageContent='" + messageContent + "\', sendPerson='"
++                + sendPerson + "\', receivePerson='" + receivePerson + "\'}";
++    }
++}
+Index: main/message/messageType/EmailMessage.java
+===================================================================
+--- main/message/messageType/EmailMessage.java	(�汾 0)
++++ main/message/messageType/EmailMessage.java	(��������)
+@@ -0,0 +1,28 @@
++package main.message.messagetype;
++
++import main.message.Message;
++
++/**
++ * Created by niuwanpeng on 2016/5/5.
++ */
++public class EmailMessage extends Message {
++
++    public EmailMessage(String sendPerson, String receivePerson, String messageContent) {
++        super(sendPerson, receivePerson, messageContent);
++    }
++
++    @Override
++    public String toString() {
++        return this.getClass().getName() + " ->" + super.toString();
++    }
++
++    @Override
++    public void run() {
++        try {
++            Thread.sleep(2000);
++            logger.info("邮件发送成功");
++        } catch (Exception e) {
++            logger.info("邮件发送失败", e);
++        }
++    }
++}
+Index: main/message/messageType/HiMessage.java
+===================================================================
+--- main/message/messageType/HiMessage.java	(�汾 0)
++++ main/message/messageType/HiMessage.java	(��������)
+@@ -0,0 +1,28 @@
++package main.message.messagetype;
++
++import main.message.Message;
++
++/**
++ * Created by niuwanpeng on 2016/5/5.
++ */
++public class HiMessage extends Message {
++
++    public HiMessage(String sendPerson, String receivePerson, String messageContent) {
++        super(sendPerson, receivePerson, messageContent);
++    }
++
++    @Override
++    public String toString() {
++        return this.getClass().getName() + " ->" + super.toString();
++    }
++
++    @Override
++    public void run() {
++        try {
++            Thread.sleep(2000);
++            logger.info("Hi发送成功");
++        } catch (Exception e) {
++            logger.info("Hi发送失败", e);
++        }
++    }
++}
+Index: main/message/messageType/ShortMessage.java
+===================================================================
+--- main/message/messageType/ShortMessage.java	(�汾 0)
++++ main/message/messageType/ShortMessage.java	(��������)
+@@ -0,0 +1,28 @@
++package main.message.messagetype;
++
++import main.message.Message;
++
++/**
++ * Created by niuwanpeng on 2016/5/5.
++ */
++public class ShortMessage extends Message {
++
++    public ShortMessage(String sendPerson, String receivePerson, String messageContent) {
++        super(sendPerson, receivePerson, messageContent);
++    }
++
++    @Override
++    public String toString() {
++        return this.getClass().getName() + " ->" + super.toString();
++    }
++
++    @Override
++    public void run() {
++        try {
++            Thread.sleep(2000);
++            logger.info("短信发送成功");
++        } catch (Exception e) {
++            logger.info("短信发送失败", e);
++        }
++    }
++}
+Index: main/message/messagetype/EmailMessage.java
+===================================================================
+--- main/message/messagetype/EmailMessage.java	(�汾 0)
++++ main/message/messagetype/EmailMessage.java	(��������)
+@@ -0,0 +1,28 @@
++package main.message.messagetype;
++
++import main.message.Message;
++
++/**
++ * Created by niuwanpeng on 2016/5/5.
++ */
++public class EmailMessage extends Message {
++
++    public EmailMessage(String sendPerson, String receivePerson, String messageContent) {
++        super(sendPerson, receivePerson, messageContent);
++    }
++
++    @Override
++    public String toString() {
++        return this.getClass().getName() + " ->" + super.toString();
++    }
++
++    @Override
++    public void run() {
++        try {
++            Thread.sleep(2000);
++            logger.info("邮件发送成功");
++        } catch (Exception e) {
++            logger.info("邮件发送失败", e);
++        }
++    }
++}
+Index: main/message/messagetype/HiMessage.java
+===================================================================
+--- main/message/messagetype/HiMessage.java	(�汾 0)
++++ main/message/messagetype/HiMessage.java	(��������)
+@@ -0,0 +1,28 @@
++package main.message.messagetype;
++
++import main.message.Message;
++
++/**
++ * Created by niuwanpeng on 2016/5/5.
++ */
++public class HiMessage extends Message {
++
++    public HiMessage(String sendPerson, String receivePerson, String messageContent) {
++        super(sendPerson, receivePerson, messageContent);
++    }
++
++    @Override
++    public String toString() {
++        return this.getClass().getName() + " ->" + super.toString();
++    }
++
++    @Override
++    public void run() {
++        try {
++            Thread.sleep(2000);
++            logger.info("Hi发送成功");
++        } catch (Exception e) {
++            logger.info("Hi发送失败", e);
++        }
++    }
++}
+Index: main/message/messagetype/ShortMessage.java
+===================================================================
+--- main/message/messagetype/ShortMessage.java	(�汾 0)
++++ main/message/messagetype/ShortMessage.java	(��������)
+@@ -0,0 +1,28 @@
++package main.message.messagetype;
++
++import main.message.Message;
++
++/**
++ * Created by niuwanpeng on 2016/5/5.
++ */
++public class ShortMessage extends Message {
++
++    public ShortMessage(String sendPerson, String receivePerson, String messageContent) {
++        super(sendPerson, receivePerson, messageContent);
++    }
++
++    @Override
++    public String toString() {
++        return this.getClass().getName() + " ->" + super.toString();
++    }
++
++    @Override
++    public void run() {
++        try {
++            Thread.sleep(2000);
++            logger.info("短信发送成功");
++        } catch (Exception e) {
++            logger.info("短信发送失败", e);
++        }
++    }
++}
+Index: main/messagecenter/MessageCenter.java
+===================================================================
+--- main/messagecenter/MessageCenter.java	(�汾 0)
++++ main/messagecenter/MessageCenter.java	(��������)
+@@ -0,0 +1,90 @@
++package main.messagecenter;
++
++import main.message.Message;
++import main.server.MessageServer;
++import main.server.servertype.EmailServer;
++import main.server.servertype.HiServer;
++import main.server.servertype.ShortServer;
++import java.util.HashMap;
++import java.util.Map;
++import java.util.concurrent.BlockingQueue;
++import java.util.concurrent.LinkedBlockingDeque;
++
++
++/**
++ * Created by niuwanpeng on 2016/5/5.
++ * 单例的
++ * blockingQueue  阻塞队列
++ * map 键值对 <消息类型，消息对应的服务器实例> ，主要用来分发消息
++ *
++ */
++public class MessageCenter extends Thread {
++    private static BlockingQueue<Message> blockingQueue = new LinkedBlockingDeque();
++    private static volatile MessageCenter instance = null;
++    private static Map<String, MessageServer> map = new HashMap<>();
++
++    private MessageCenter() {
++
++    }
++
++    /**
++     *单例模式 ，双重检查锁
++     * @return
++     */
++    public static MessageCenter getInstance() {
++        if (instance == null) {
++            synchronized (MessageCenter.class) {
++                if (instance == null) {
++                    instance = new MessageCenter();
++                    instance.setMap();
++                }
++            }
++        }
++        return instance;
++    }
++
++    public static BlockingQueue<Message> getBlockingQueue() {
++        return blockingQueue;
++    }
++
++    public static void push(Message message) {
++        blockingQueue.add(message);
++    }
++
++    /**
++     * 初始化map映射信息
++     */
++    public static void setMap() {
++        map.put("main.message.messagetype.HiMessage", HiServer.getInstance());
++        map.put("main.message.messagetype.ShortMessage", ShortServer.getInstance());
++        map.put("main.message.messagetype.EmailMessage", EmailServer.getInstance());
++    }
++
++    /**
++     * 提供注册接口，当增加新的消息类型时注册到map容器中
++     * @param typePath
++     * @param messageServer
++     */
++    public static void register(String typePath, MessageServer messageServer) {
++        map.put(typePath, messageServer);
++    }
++
++    /**
++     * 根据消息类型分发到各个服务器
++     */
++    public static void dispatchMessage() {
++        Message message = blockingQueue.poll();
++        String type = message.getType();
++        MessageServer messageServer = map.get(type);
++        messageServer.push(message);
++    }
++
++    @Override
++    public void run() {
++        while (true) {
++            if (!blockingQueue.isEmpty()) {
++                MessageCenter.dispatchMessage();
++            }
++        }
++    }
++}
+Index: main/server/MessageServer.java
+===================================================================
+--- main/server/MessageServer.java	(�汾 0)
++++ main/server/MessageServer.java	(��������)
+@@ -0,0 +1,80 @@
++package main.server;
++
++import main.message.Message;
++import java.util.Date;
++import java.util.concurrent.BlockingQueue;
++import java.util.concurrent.ExecutorService;
++import java.util.concurrent.Executors;
++import java.util.concurrent.LinkedBlockingDeque;
++import org.apache.log4j.Logger;
++
++/**
++ * Created by niuwanpeng on 2016/5/5.
++ * 消息服务器类
++ */
++public abstract class MessageServer extends Thread {
++
++    protected BlockingQueue blockingQueue = new LinkedBlockingDeque();
++    /**
++     * 线程池，最大数目为5,可变
++     */
++    protected ExecutorService executor = Executors.newFixedThreadPool(5);
++    /**
++     * 每分钟最大发送数量,每个服务器自行设定，每个服务器都不一样
++     */
++    protected int max;
++    /**
++     * 控制发送数量countMessage<=max,而且是线程同步的
++     */
++    protected volatile int countMessage = 0;
++
++    protected Logger logger = Logger.getLogger(MessageServer.class);
++
++    public BlockingQueue getBlockingQueue() {
++        return blockingQueue;
++    }
++
++    /**
++     * 将消息推送到阻塞队列
++     * @param message
++     */
++    public void push(Message message) {
++        blockingQueue.add(message);
++    }
++
++    /**
++     * 控制每分钟只能发送max条信息，对服务器发送消息进行限流处理
++     * 60000ms = 1分钟
++     */
++    public void controlMessage() {
++        Date date = new Date();
++        Long timeLine = date.getTime() + 60000;
++        while (true) {
++            if (!blockingQueue.isEmpty()) {
++                if (date.getTime() <= timeLine && countMessage < max) {
++                    this.sendMessage();
++                    countMessage++;
++                } else {
++                    logger.info(this.getClass().getName() + "服务器阻塞限流");
++                    try {
++                        if ((timeLine - date.getTime()) > 0) {
++                            Thread.sleep(timeLine - date.getTime());
++                        }
++                    } catch (InterruptedException e) {
++                        logger.info("error", e);
++                    } finally {
++                        logger.info(this.getClass().getName() + "服务器唤醒继续发送");
++                        timeLine = date.getTime() + 60000;
++                        countMessage = 0;
++                    }
++                }
++            }
++        }
++    }
++
++    /**
++     * 模拟发送消息
++     * 具体实现根据Message类型的不同有不同的实现
++     */
++    public abstract void sendMessage();
++}
+Index: main/server/serverType/EmailServer.java
+===================================================================
+--- main/server/serverType/EmailServer.java	(�汾 0)
++++ main/server/serverType/EmailServer.java	(��������)
+@@ -0,0 +1,42 @@
++package main.server.servertype;
++
++import main.server.MessageServer;
++
++/**
++ * Created by niuwanpeng on 2016/5/5.
++ * 邮件服务器，单例
++ */
++public class EmailServer extends MessageServer {
++    private static volatile EmailServer instance = null;
++
++    private EmailServer() {
++
++    }
++
++    /**
++     * 单例模式，实例化后调用start方法启动该服务器的线程
++     * @return
++     */
++    public static EmailServer getInstance() {
++        if (instance == null) {
++            synchronized (EmailServer.class) {
++                if (instance == null) {
++                    instance = new EmailServer();
++                    instance.max = 3;
++                    instance.start();
++                }
++            }
++        }
++        return instance;
++    }
++
++    @Override
++    public void sendMessage() {
++        executor.execute((Runnable) blockingQueue.poll());
++    }
++
++    @Override
++    public void run() {
++        this.controlMessage();
++    }
++}
+Index: main/server/serverType/HiServer.java
+===================================================================
+--- main/server/serverType/HiServer.java	(�汾 0)
++++ main/server/serverType/HiServer.java	(��������)
+@@ -0,0 +1,44 @@
++package main.server.servertype;
++
++import main.server.MessageServer;
++
++/**
++ * Created by niuwanpeng on 2016/5/5.
++ * Hi服务器,单例的
++ */
++public class HiServer extends MessageServer {
++    private static volatile HiServer instance = null;
++
++    private HiServer() {
++        /**
++         * 私有，不能被外部创建
++         */
++    }
++
++    /**
++     * 单例模式，实例化后调用start方法启动该服务器的线程
++     * @return
++     */
++    public static HiServer getInstance() {
++        if (instance == null) {
++            synchronized (HiServer.class) {
++                if (instance == null) {
++                    instance = new HiServer();
++                    instance.max = 10;
++                    instance.start();
++                }
++            }
++        }
++        return instance;
++    }
++
++    @Override
++    public void sendMessage() {
++        executor.execute((Runnable) blockingQueue.poll());
++    }
++
++    @Override
++    public void run() {
++        this.controlMessage();
++    }
++}
+Index: main/server/serverType/ShortServer.java
+===================================================================
+--- main/server/serverType/ShortServer.java	(�汾 0)
++++ main/server/serverType/ShortServer.java	(��������)
+@@ -0,0 +1,44 @@
++package main.server.servertype;
++
++import main.server.MessageServer;
++
++/**
++ * Created by niuwanpeng on 2016/5/5.
++ * 短信服务器，单例
++ */
++public class ShortServer extends MessageServer {
++    private static volatile ShortServer instance = null;
++
++    private ShortServer() {
++        /**
++         * 私有，不能被外部创建
++         */
++    }
++
++    /**
++     * 单例模式，实例化后调用start方法启动该服务器的线程
++     * @return
++     */
++    public static ShortServer getInstance() {
++        if (instance == null) {
++            synchronized (ShortServer.class) {
++                if (instance == null) {
++                    instance = new ShortServer();
++                    instance.max = 15;
++                    instance.start();
++                }
++            }
++        }
++        return instance;
++    }
++
++    @Override
++    public void sendMessage() {
++        executor.execute((Runnable) blockingQueue.poll());
++    }
++
++    @Override
++    public void run() {
++        this.controlMessage();
++    }
++}
+Index: main/server/servertype/EmailServer.java
+===================================================================
+--- main/server/servertype/EmailServer.java	(�汾 0)
++++ main/server/servertype/EmailServer.java	(��������)
+@@ -0,0 +1,42 @@
++package main.server.servertype;
++
++import main.server.MessageServer;
++
++/**
++ * Created by niuwanpeng on 2016/5/5.
++ * 邮件服务器，单例
++ */
++public class EmailServer extends MessageServer {
++    private static volatile EmailServer instance = null;
++
++    private EmailServer() {
++
++    }
++
++    /**
++     * 单例模式，实例化后调用start方法启动该服务器的线程
++     * @return
++     */
++    public static EmailServer getInstance() {
++        if (instance == null) {
++            synchronized (EmailServer.class) {
++                if (instance == null) {
++                    instance = new EmailServer();
++                    instance.max = 3;
++                    instance.start();
++                }
++            }
++        }
++        return instance;
++    }
++
++    @Override
++    public void sendMessage() {
++        executor.execute((Runnable) blockingQueue.poll());
++    }
++
++    @Override
++    public void run() {
++        this.controlMessage();
++    }
++}
+Index: main/server/servertype/HiServer.java
+===================================================================
+--- main/server/servertype/HiServer.java	(�汾 0)
++++ main/server/servertype/HiServer.java	(��������)
+@@ -0,0 +1,44 @@
++package main.server.servertype;
++
++import main.server.MessageServer;
++
++/**
++ * Created by niuwanpeng on 2016/5/5.
++ * Hi服务器,单例的
++ */
++public class HiServer extends MessageServer {
++    private static volatile HiServer instance = null;
++
++    private HiServer() {
++        /**
++         * 私有，不能被外部创建
++         */
++    }
++
++    /**
++     * 单例模式，实例化后调用start方法启动该服务器的线程
++     * @return
++     */
++    public static HiServer getInstance() {
++        if (instance == null) {
++            synchronized (HiServer.class) {
++                if (instance == null) {
++                    instance = new HiServer();
++                    instance.max = 10;
++                    instance.start();
++                }
++            }
++        }
++        return instance;
++    }
++
++    @Override
++    public void sendMessage() {
++        executor.execute((Runnable) blockingQueue.poll());
++    }
++
++    @Override
++    public void run() {
++        this.controlMessage();
++    }
++}
+Index: main/server/servertype/ShortServer.java
+===================================================================
+--- main/server/servertype/ShortServer.java	(�汾 0)
++++ main/server/servertype/ShortServer.java	(��������)
+@@ -0,0 +1,44 @@
++package main.server.servertype;
++
++import main.server.MessageServer;
++
++/**
++ * Created by niuwanpeng on 2016/5/5.
++ * 短信服务器，单例
++ */
++public class ShortServer extends MessageServer {
++    private static volatile ShortServer instance = null;
++
++    private ShortServer() {
++        /**
++         * 私有，不能被外部创建
++         */
++    }
++
++    /**
++     * 单例模式，实例化后调用start方法启动该服务器的线程
++     * @return
++     */
++    public static ShortServer getInstance() {
++        if (instance == null) {
++            synchronized (ShortServer.class) {
++                if (instance == null) {
++                    instance = new ShortServer();
++                    instance.max = 15;
++                    instance.start();
++                }
++            }
++        }
++        return instance;
++    }
++
++    @Override
++    public void sendMessage() {
++        executor.execute((Runnable) blockingQueue.poll());
++    }
++
++    @Override
++    public void run() {
++        this.controlMessage();
++    }
++}
+Index: test/MessageCenterTest.java
+===================================================================
+--- test/MessageCenterTest.java	(�汾 0)
++++ test/MessageCenterTest.java	(��������)
+@@ -0,0 +1,36 @@
++package test;
++
++import main.message.messagetype.EmailMessage;
++import main.message.messagetype.HiMessage;
++import main.message.messagetype.ShortMessage;
++import main.messagecenter.MessageCenter;
++import main.server.servertype.EmailServer;
++import main.server.servertype.HiServer;
++import main.server.servertype.ShortServer;
++import org.junit.Assert;
++import org.junit.Test;
++
++/**
++ * Created by niuwanpeng on 2016/5/6.
++ */
++public class MessageCenterTest {
++    private  MessageCenter messageCenter = MessageCenter.getInstance();
++
++    @Test
++    public void testGetInstance() {
++        Assert.assertEquals(messageCenter, MessageCenter.getInstance());
++    }
++
++    @Test
++    public void testDispatchMessage() {
++        MessageCenter.push(new HiMessage("tomHi", "LucyHi", "Hi"));
++        MessageCenter.push(new EmailMessage("tomEmail", "LucyEmail", "Email"));
++        MessageCenter.push(new ShortMessage("tomShort", "LucyShort", "Short"));
++        while (!messageCenter.getBlockingQueue().isEmpty()) {
++            messageCenter.dispatchMessage();
++        }
++        Assert.assertEquals(false, HiServer.getInstance().getBlockingQueue().isEmpty());
++        Assert.assertEquals(false, EmailServer.getInstance().getBlockingQueue().isEmpty());
++        Assert.assertEquals(false, ShortServer.getInstance().getBlockingQueue().isEmpty());
++    }
++}
+Index: test/MessageServerTest.java
+===================================================================
+--- test/MessageServerTest.java	(�汾 0)
++++ test/MessageServerTest.java	(��������)
+@@ -0,0 +1,45 @@
++package test;
++
++import main.message.messagetype.HiMessage;
++import main.server.MessageServer;
++import main.server.servertype.HiServer;
++import org.junit.Assert;
++import org.junit.Before;
++import org.junit.Test;
++
++import java.util.Date;
++
++/**
++ * Created by niuwanpeng on 2016/5/6.
++ */
++public class MessageServerTest {
++    private MessageServer messageServer = HiServer.getInstance();
++
++    @Before
++    public void addMeaaage() {
++        for (int i = 0; i < 40; i++) {
++            messageServer.push(new HiMessage("test", "test2", "test" + i));
++        }
++    }
++
++    @Test
++    public void testControlMessage() {
++        Date date = new Date();
++        Long timeLine = date.getTime() + 60000;
++        int m = 0;
++        while (!messageServer.getBlockingQueue().isEmpty()) {
++            if (date.getTime() <= timeLine && m < 16) {
++                try {
++                    Thread.sleep(2000);
++                    messageServer.getBlockingQueue().poll();
++                } catch (InterruptedException e) {
++                    e.printStackTrace();
++                }
++                m++;
++            } else {
++                break;
++            }
++        }
++        Assert.assertEquals(16, m);
++    }
++}

@@ -31,11 +31,6 @@ public class EmailServer extends MessageServer {
     }
 
     @Override
-    public void sendMessage() {
-        executor.execute((Runnable) blockingQueue.poll());
-    }
-
-    @Override
     public void run() {
         this.controlMessage();
     }

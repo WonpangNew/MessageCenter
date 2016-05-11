@@ -1,10 +1,12 @@
 package main.messagecenter;
 
 import main.message.Message;
+import main.message.MessageType;
 import main.server.MessageServer;
 import main.server.servertype.EmailServer;
 import main.server.servertype.HiServer;
 import main.server.servertype.ShortServer;
+import org.apache.log4j.Logger;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
@@ -22,6 +24,7 @@ public class MessageCenter extends Thread {
     private static BlockingQueue<Message> blockingQueue = new LinkedBlockingDeque();
     private static volatile MessageCenter instance = null;
     private static Map<String, MessageServer> map = new HashMap<>();
+    public static Logger logger = Logger.getLogger(MessageCenter.class);
 
     private MessageCenter() {
 
@@ -55,9 +58,9 @@ public class MessageCenter extends Thread {
      * 初始化map映射信息
      */
     public static void setMap() {
-        map.put("main.message.messagetype.HiMessage", HiServer.getInstance());
-        map.put("main.message.messagetype.ShortMessage", ShortServer.getInstance());
-        map.put("main.message.messagetype.EmailMessage", EmailServer.getInstance());
+        map.put(MessageType.Hi.toString(), HiServer.getInstance());
+        map.put(MessageType.SHORTMESSAGE.toString(), ShortServer.getInstance());
+        map.put(MessageType.EMAIL.toString(), EmailServer.getInstance());
     }
 
     /**
@@ -72,8 +75,7 @@ public class MessageCenter extends Thread {
     /**
      * 根据消息类型分发到各个服务器
      */
-    public static void dispatchMessage() {
-        Message message = blockingQueue.poll();
+    public static void dispatchMessage(Message message) {
         String type = message.getType();
         MessageServer messageServer = map.get(type);
         messageServer.push(message);
@@ -82,8 +84,11 @@ public class MessageCenter extends Thread {
     @Override
     public void run() {
         while (true) {
-            if (!blockingQueue.isEmpty()) {
-                MessageCenter.dispatchMessage();
+            try {
+                Message message = blockingQueue.take();
+                MessageCenter.dispatchMessage(message);
+            } catch (InterruptedException e) {
+                logger.info("没有待处理消息", e);
             }
         }
     }

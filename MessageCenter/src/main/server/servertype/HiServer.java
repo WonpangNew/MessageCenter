@@ -10,9 +10,7 @@ public class HiServer extends MessageServer {
     private static volatile HiServer instance = null;
 
     private HiServer() {
-        /**
-         * 私有，不能被外部创建
-         */
+
     }
 
     /**
@@ -30,11 +28,6 @@ public class HiServer extends MessageServer {
             }
         }
         return instance;
-    }
-
-    @Override
-    public void sendMessage() {
-        executor.execute((Runnable) blockingQueue.poll());
     }
 
     @Override
